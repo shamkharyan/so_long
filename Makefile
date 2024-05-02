@@ -15,10 +15,12 @@ SRCS = \
 		$(SRCS_DIR)game_utils.c \
 		$(SRCS_DIR)check_map.c \
 		$(SRCS_DIR)so_long_utils.c \
+		$(SRCS_DIR)movement.c \
 
 OBJS = $(SRCS:.c=.o)
 
-CFLAGS = -Wall -Werror -Wextra -Imlx
+DEBUG = -fsanitize=address
+CFLAGS =  -Wall -Werror -Wextra -Imlx
 MLXFLAGS = -Lmlx -lmlx -framework OpenGl -framework Appkit -lm
 
 CC = cc
@@ -27,10 +29,10 @@ all: $(NAME)
 
 $(NAME): $(OBJS)
 	make -C $(FT_PRINTF_DIR)
-	$(CC) $(MLXFLAGS) $(OBJS) -o $(NAME) $(FT_PRINTF)
+	$(CC) $(DEBUG) $(MLXFLAGS) $(OBJS) -o $(NAME) $(FT_PRINTF)
 
 %.o: %.c Makefile
-	$(CC) $(CFLAGS) -c $< -o $@ -I $(INCLUDES_DIR)
+	$(CC) $(DEBUG) $(CFLAGS) -c $< -o $@ -I $(INCLUDES_DIR)
 
 clean:
 	make -C $(FT_PRINTF_DIR) clean

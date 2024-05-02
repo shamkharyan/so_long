@@ -6,13 +6,13 @@
 /*   By: pshamkha <pshamkha@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/28 18:01:42 by pshamkha          #+#    #+#             */
-/*   Updated: 2024/04/28 19:15:17 by pshamkha         ###   ########.fr       */
+/*   Updated: 2024/04/30 17:34:49 by pshamkha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "so_long.h"
 
-int	init_map(t_map *m, char *argv)
+int	init_map(t_game *game, char *argv)
 {
 	int	fd;
 	int	i;
@@ -20,21 +20,31 @@ int	init_map(t_map *m, char *argv)
 	fd = open(argv, O_RDONLY);
 	if (fd < 0)
 		return (0);
-	m->map_arr = (char **) malloc(sizeof(char *) * m->height);
-	if (m->map_arr == NULL)
+	game->map = (char **) malloc(sizeof(char *) * game->map_height);
+	if (game->map == NULL)
 		return (0);
-	m->map_arr[0] = get_next_line(fd);
-	i = 0;
-	while (m->map_arr[i] != NULL)
+	i = -1;
+	while (++i < game->map_height)
 	{
-		if (m->map_arr[i++] == NULL)
+		game->map[i] = get_next_line(fd);
+		if (game->map[i] == NULL)
 		{
-			free_map(m->map_arr, i);
+			free_map(game->map, i);
 			return (0);
 		}
-		m->map_arr[i] = get_next_line(fd);
 	}
+	close(fd);
 	return (1);
+}
+
+static void	display_moves(t_game *game)
+{
+	char	*str;
+
+	str = ft_itoa(game->steps);
+	mlx_string_put(game->mlx, game->mlx_win, 24, 24, 0xFFFF00, "Steps: ");
+	mlx_string_put(game->mlx, game->mlx_win, 100, 24, 0xFFFF00, str);
+	free(str);
 }
 
 void	draw_map(t_game *game)
@@ -43,35 +53,58 @@ void	draw_map(t_game *game)
 	int	x;
 
 	y = -1;
-	while (++y < game->map.height)
+	while (++y < game->map_height)
 	{
 		x = -1;
-		while (++x < game->map.width)
+		while (++x < game->map_width)
 		{
-			if (game->map.map_arr[y][x] == '1')
-				mlx_put_image_to_window(game->mlx, game->mlx_win, game->textures[5], x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
-			else if (game->map.map_arr[y][x] == '0')
-				mlx_put_image_to_window(game->mlx, game->mlx_win, game->textures[1], x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
-			else if (game->map.map_arr[y][x] == 'E')
-				mlx_put_image_to_window(game->mlx, game->mlx_win, game->textures[2], x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
-			else if (game->map.map_arr[y][x] == 'C')
-				mlx_put_image_to_window(game->mlx, game->mlx_win, game->textures[3], x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
-			else if (game->map.map_arr[y][x] == 'P')
-				mlx_put_image_to_window(game->mlx, game->mlx_win, game->textures[4], x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
+			if (game->map[y][x] == '1')
+				draw_img(game, game->wall, x, y);
+			else if (game->map[y][x] == '0')
+				draw_img(game, game->floor, x, y);
+			else if (game->map[y][x] == 'E')
+				draw_img(game, game->door, x, y);
+			else if (game->map[y][x] == 'C')
+				draw_img(game, game->coin[game->loop / SPEED], x, y);
+			else if (game->map[y][x] == 'P')
+				draw_img(game, game->head[game->exit], x, y);
+			else if (game->map[y][x] == 'X')
+				draw_img(game, game->enemy, x, y);
 		}
 	}
+	display_moves(game);
 }
 
-void	init_game(t_game *game)
+void	init_game(t_game *gm)
 {
-	game->mlx = mlx_init();
-	game->mlx_win = mlx_new_window(game->mlx, game->map.width * IMAGE_WIDTH, game->map.height * IMAGE_HEIGHT, "so_long");
-	game->tex_width = IMAGE_WIDTH;
-	game->tex_height = IMAGE_HEIGHT;
-	game->textures[0] = mlx_xpm_file_to_image(game->mlx, "textures/Enemy/Enemy_0.xpm", &game->tex_width, &game->tex_height);
-	game->textures[1] = mlx_xpm_file_to_image(game->mlx, "textures/Floor/Floor_0.xpm", &game->tex_width, &game->tex_height);
-	game->textures[2] = mlx_xpm_file_to_image(game->mlx, "textures/Gate/Gate_0.xpm", &game->tex_width, &game->tex_height);
-	game->textures[3] = mlx_xpm_file_to_image(game->mlx, "textures/Item/Head_0.xpm", &game->tex_width, &game->tex_height);
-	game->textures[4] = mlx_xpm_file_to_image(game->mlx, "textures/Player/Player_0.xpm", &game->tex_width, &game->tex_height);
-	game->textures[5] = mlx_xpm_file_to_image(game->mlx, "textures/Wall/Wall_0.xpm", &game->tex_width, &game->tex_height);
+	gm->mlx = mlx_init();
+	gm->mlx_win = mlx_new_window(gm->mlx, gm->map_width * IMAGE_WIDTH,
+			gm->map_height * IMAGE_HEIGHT, "so_long");
+	gm->tex_width = IMAGE_WIDTH;
+	gm->tex_height = IMAGE_HEIGHT;
+	gm->steps = 0;
+	gm->endgame = 0;
+	gm->exit = 0;
+	get_image(gm, "textures/Enemy/Enemy_0.xpm", &gm->enemy);
+	get_image(gm, "textures/Floor/Floor_0.xpm", &gm->floor);
+	get_image(gm, "textures/Door/Door_0.xpm", &gm->door);
+	get_image(gm, "textures/Player/PLayer_0.xpm", &gm->head[0]);
+	get_image(gm, "textures/Player/PLayer_1.xpm", &gm->head[1]);
+	get_image(gm, "textures/Wall/Wall_0.xpm", &gm->wall);
+	get_image(gm, "textures/Coin/Coin_0.xpm", &gm->coin[0]);
+	get_image(gm, "textures/Coin/Coin_1.xpm", &gm->coin[1]);
+	get_image(gm, "textures/Coin/Coin_2.xpm", &gm->coin[2]);
+	get_image(gm, "textures/Coin/Coin_3.xpm", &gm->coin[3]);
+	get_image(gm, "textures/Coin/Coin_4.xpm", &gm->coin[4]);
+	get_image(gm, "textures/Coin/Coin_5.xpm", &gm->coin[5]);
+}
+
+int	animation(t_game *game)
+{
+	if (game->loop > 5 * SPEED)
+		game->loop = 0;
+	else if (game->loop % SPEED == 0)
+		draw_map(game);
+	game->loop++;
+	return (0);
 }

@@ -6,13 +6,13 @@
 /*   By: pshamkha <pshamkha@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/26 17:34:03 by pshamkha          #+#    #+#             */
-/*   Updated: 2024/04/28 18:45:39 by pshamkha         ###   ########.fr       */
+/*   Updated: 2024/04/30 20:04:51 by pshamkha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "so_long.h"
 
-int	check_size(t_map *m, char *argv)
+int	check_size(t_game *game, char *argv)
 {
 	int		fd;
 	char	*line;
@@ -21,87 +21,90 @@ int	check_size(t_map *m, char *argv)
 	if (fd < 0)
 		return (0);
 	line = get_next_line(fd);
-	m->height = 0;
-	m->width = ft_strlen(line) - 1;
+	game->map_height = 0;
+	game->map_width = ft_strlen(line) - 1;
 	while (line != NULL)
 	{
-		if (m->width != (int) ft_strlen(line) - 1 || line == NULL)
+		if (game->map_width != (int) ft_strlen(line) - 1 || line == NULL)
+		{
+			free(line);
 			return (0);
-		m->height++;
+		}
+		game->map_height++;
 		free(line);
 		line = get_next_line(fd);
 	}
 	close(fd);
+	return (game->map_height > 0);
+}
+
+static int	check_borders(t_game *game)
+{
+	game->coords.x = 0;
+	game->coords.y = 0;
+	while (game->coords.y < game->map_height)
+	{
+		while (game->coords.x < game->map_width)
+			if (game->map[game->coords.y][game->coords.x++] != '1')
+				return (0);
+		game->coords.y += game->map_height - 1;
+		game->coords.x = 0;
+	}
+	game->coords.x = 0;
+	game->coords.y = 0;
+	while (game->coords.x < game->map_width)
+	{
+		while (game->coords.y < game->map_height)
+			if (game->map[game->coords.y++][game->coords.x] != '1')
+				return (0);
+		game->coords.x += game->map_width - 1;
+		game->coords.y = 0;
+	}
 	return (1);
 }
 
-static int	check_borders(t_map *m)
+static int	check_components(t_game *game)
 {
-	m->coords.x = 0;
-	m->coords.y = 0;
-	while (m->coords.y < m->height)
+	game->player.x = -1;
+	game->exit = 0;
+	game->collectable = 0;
+	game->coords.y = -1;
+	while (++(game->coords.y) < game->map_height)
 	{
-		while (m->coords.x < m->width)
-			if (m->map_arr[m->coords.y][m->coords.x++] != '1')
-				return (0);
-		m->coords.y += m->height - 1;
-		m->coords.x = 0;
-	}
-	m->coords.x = 0;
-	m->coords.y = 0;
-	while (m->coords.x < m->width)
-	{
-		while (m->coords.y < m->height)
-			if (m->map_arr[m->coords.y++][m->coords.x] != '1')
-				return (0);
-		m->coords.x += m->width - 1;
-		m->coords.y = 0;
-	}
-	return (1);
-}
-
-static int	check_components(t_map *m)
-{
-	m->player.x = -1;
-	m->player.y = -1;
-	m->exit = 0;
-	m->collectable = 0;
-	m->coords.y = -1;
-	while (++(m->coords.y) < m->height)
-	{
-		m->coords.x = -1;
-		while (++(m->coords.x) < m->width)
+		game->coords.x = -1;
+		while (++(game->coords.x) < game->map_width)
 		{
-			if (m->map_arr[m->coords.y][m->coords.x] == 'P')
-				m->player = m->coords;
-			else if (m->map_arr[m->coords.y][m->coords.x] == 'C')
-				++m->collectable;
-			else if (m->map_arr[m->coords.y][m->coords.x] == 'E')
-				++m->exit;
-			else if (!(m->map_arr[m->coords.y][m->coords.x] == '1')
-				&& !(m->map_arr[m->coords.y][m->coords.x] == '0'))
+			if (game->map[game->coords.y][game->coords.x] == 'P'
+				&& game->player.x == -1)
+				game->player = game->coords;
+			else if (game->map[game->coords.y][game->coords.x] == 'C')
+				++game->collectable;
+			else if (game->map[game->coords.y][game->coords.x] == 'E')
+				++game->exit;
+			else if (game->map[game->coords.y][game->coords.x] != 'X'
+				&& game->map[game->coords.y][game->coords.x] != '1'
+				&& game->map[game->coords.y][game->coords.x] != '0')
 				return (0);
 		}
 	}
-	return (m->player.x != -1 && m->exit == 1 && m->collectable >= 1);
+	return (game->player.x != -1 && game->exit == 1 && game->collectable >= 1);
 }
 
-static int	check_path(t_map *m)
+static int	check_path(t_game *game)
 {
 	int		flag;
 	char	**map_copy;
 
-	flag = m->exit + m->collectable;
-	map_copy = copy_map(m->map_arr, m->height);
+	flag = game->collectable + 1;
+	map_copy = copy_map(game->map, game->map_height);
 	if (map_copy == NULL)
 		return (0);
-	flood_fill(map_copy, &flag, m->player.y, m->player.x);
+	flood_fill(map_copy, &flag, game->player.y, game->player.x);
+	free_map(map_copy, game->map_height);
 	return (!flag);
 }
 
-int	check_map(t_map *m)
+int	check_map(t_game *m)
 {
 	return (check_borders(m) && check_components(m) && check_path(m));
 }
-
-

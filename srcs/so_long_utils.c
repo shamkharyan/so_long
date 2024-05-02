@@ -6,7 +6,7 @@
 /*   By: pshamkha <pshamkha@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/04/28 14:47:09 by pshamkha          #+#    #+#             */
-/*   Updated: 2024/04/28 15:14:20 by pshamkha         ###   ########.fr       */
+/*   Updated: 2024/04/30 17:39:46 by pshamkha         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,7 +14,7 @@
 
 void	flood_fill(char **map, int *flag, int y, int x)
 {
-	if (map[y][x] == '1')
+	if (map[y][x] == '1' || map[y][x] == 'X')
 		return ;
 	else if (map[y][x] == 'C' || map[y][x] == 'E')
 		--(*flag);
@@ -31,7 +31,7 @@ void	free_map(char **map, int height)
 
 	i = 0;
 	while (i < height)
-		free(map[i]);
+		free(map[i++]);
 	free(map);
 }
 
@@ -54,4 +54,16 @@ char	**copy_map(char **map, int height)
 		}
 	}
 	return (new_map);
+}
+
+void	get_image(t_game *game, char *link, void **var)
+{
+	*var = mlx_xpm_file_to_image(game->mlx,
+			link, &game->tex_width, &game->tex_height);
+}
+
+void	draw_img(t_game *game, void *img, int x, int y)
+{
+	mlx_put_image_to_window(game->mlx, game->mlx_win, img,
+		x * IMAGE_WIDTH, y * IMAGE_HEIGHT);
 }
